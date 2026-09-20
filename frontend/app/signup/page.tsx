@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Mail, Lock, Eye, EyeOff, User, UserCheck, ArrowRight, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import { TrendingUp, Mail, Lock, Eye, EyeOff, User, UserCheck, ArrowRight, ArrowLeft, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
 import { signUp, continueAsGuest, isAuthenticated, isGuestUser } from "@/lib/auth";
 
 export default function SignUpPage() {
@@ -15,12 +15,34 @@ export default function SignUpPage() {
   const [showPw, setShowPw]     = useState(false);
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
+  const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
+  const [savedApplicantName, setSavedApplicantName] = useState("");
 
   useEffect(() => {
     if (isAuthenticated() && !isGuestUser()) {
       router.replace("/dashboard");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved =
+        localStorage.getItem("crediwise_saved_assessment") ||
+        sessionStorage.getItem("crediwise_saved_assessment");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setHasSavedAssessment(true);
+          if (parsed.formData?.applicantName && parsed.formData.applicantName !== "Fatima Zahra") {
+            setName(parsed.formData.applicantName);
+            setSavedApplicantName(parsed.formData.applicantName);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
 
   const strength = (() => {
     let s = 0;
@@ -90,7 +112,7 @@ export default function SignUpPage() {
           </p>
         </div>
 
-        <div className="glass p-8 space-y-6">
+        <div className="glass p-8 space-y-5">
           <div>
             <Link
               href="/"
@@ -106,6 +128,27 @@ export default function SignUpPage() {
               Get started with AI-powered loan assessment
             </p>
           </div>
+
+          {/* Saved Assessment Banner */}
+          {hasSavedAssessment && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 rounded-2xl flex items-start gap-2.5 text-xs border"
+              style={{
+                background: "linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(13, 148, 136, 0.08))",
+                borderColor: "rgba(16, 185, 129, 0.35)",
+              }}
+            >
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-emerald-400">Loan Assessment Saved</p>
+                <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed">
+                  Your assessment data{savedApplicantName ? ` for ${savedApplicantName}` : ""} will automatically link to your permanent underwriter account.
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Brain,
@@ -44,6 +45,7 @@ const INITIAL_FORM_DATA: LoanFormData = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<LoanFormData>(INITIAL_FORM_DATA);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof LoanFormData, string>>>({});
@@ -67,6 +69,60 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Continuously synchronize current assessment state to sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const payload = {
+        formData,
+        predictionResult,
+        savedAt: new Date().toISOString(),
+      };
+      sessionStorage.setItem("crediwise_current_assessment", JSON.stringify(payload));
+    }
+  }, [formData, predictionResult]);
+
+  // Restore saved assessment if returning from signup or redirected
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved =
+        localStorage.getItem("crediwise_saved_assessment") ||
+        sessionStorage.getItem("crediwise_saved_assessment");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.formData) {
+            setFormData(parsed.formData);
+          }
+          if (parsed.predictionResult) {
+            setPredictionResult(parsed.predictionResult);
+          }
+          // Remove after restoring to allow subsequent changes
+          localStorage.removeItem("crediwise_saved_assessment");
+          sessionStorage.removeItem("crediwise_saved_assessment");
+          addToast("info", "Restored your saved loan assessment profile.");
+        } catch {
+          // ignore parse error
+        }
+      }
+    }
+  }, []);
+
+  function handleSaveAssessmentAndSignUp() {
+    if (typeof window !== "undefined") {
+      const payload = {
+        formData,
+        predictionResult,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("crediwise_saved_assessment", JSON.stringify(payload));
+      sessionStorage.setItem("crediwise_saved_assessment", JSON.stringify(payload));
+    }
+    addToast("success", "Assessment saved! Redirecting to secure account creation…");
+    setTimeout(() => {
+      router.push("/signup?saved=true");
+    }, 300);
+  }
+
   function handleLoadPrimeApplicant() {
     setFormData({
       applicantName: "Jordan Vance",
@@ -85,7 +141,7 @@ export default function DashboardPage() {
     setFormErrors({});
     setPredictionResult(null);
     setCurrentStep(1);
-    addToast("info", "Loaded Prime Applicant profile (Good credit, strong income).");
+    addToast("info", "Loaded Prime Applicant profile (Higher income, clean credit history).");
   }
 
   function handleLoadHighRiskApplicant() {
@@ -106,7 +162,7 @@ export default function DashboardPage() {
     setFormErrors({});
     setPredictionResult(null);
     setCurrentStep(1);
-    addToast("warning", "Loaded High-Risk Applicant profile (Poor credit, high DTI).");
+    addToast("warning", "Loaded High-Risk Applicant profile (Poor credit, high loan request).");
   }
 
   function addToast(type: ToastMessage["type"], message: string) {
@@ -317,20 +373,21 @@ export default function DashboardPage() {
             >
               ⚠️ High-Risk Applicant
             </button>
-            <Link
-              href="/signup"
+            <button
               id="guest-banner-signup-btn"
-              className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 shadow-md hover:scale-105 transition-transform"
+              type="button"
+              onClick={handleSaveAssessmentAndSignUp}
+              className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 shadow-md hover:scale-105 transition-transform cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
               <span>Save Assessment / Sign Up</span>
-            </Link>
+            </button>
           </div>
         </motion.div>
       )}
 
-      {/* Three Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+      {/* Three Statistics Cards — Responsive grid: 1 col on mobile, 3 cols on sm+ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           icon={Brain}
           label="Model"
@@ -357,11 +414,38 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Main 2-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        {/* Left Column: Multi-Step Application Form (7 cols on desktop) */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="glass p-6 sm:p-8 space-y-6">
+      {/* Main Container: Stacks to single column on mobile/tablet, side-by-side on lg+ */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* Left Column: Multi-Step Application Form */}
+        <div className="w-full lg:flex-1 space-y-6 min-w-0">
+          <div className="glass p-5 sm:p-8 space-y-6">
+            {/* Quick Test Presets Bar inside the form card */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <span className="text-[11px] font-semibold text-slate-400">
+                Quick Test Scenarios:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  id="form-preset-prime-btn"
+                  type="button"
+                  onClick={handleLoadPrimeApplicant}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
+                  title="Higher income, clean credit history, graduate"
+                >
+                  🌟 Prime Applicant
+                </button>
+                <button
+                  id="form-preset-risk-btn"
+                  type="button"
+                  onClick={handleLoadHighRiskApplicant}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 cursor-pointer transition-colors"
+                  title="Lower income, poor credit history, high loan amount"
+                >
+                  ⚠️ High-Risk Applicant
+                </button>
+              </div>
+            </div>
+
             {/* Step Indicator Header */}
             <StepIndicator
               currentStep={currentStep}
@@ -442,7 +526,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleNextStep}
-                    className="btn-primary flex items-center gap-2"
+                    className="btn-primary flex items-center gap-2 cursor-pointer"
                   >
                     <span>Next</span>
                     <ArrowRight className="w-4 h-4" />
@@ -453,7 +537,7 @@ export default function DashboardPage() {
                     type="button"
                     disabled={loading}
                     onClick={handleGetPrediction}
-                    className="btn-primary flex items-center gap-2 px-6 py-3 text-sm sm:text-base font-bold shadow-xl"
+                    className="btn-primary flex items-center gap-2 px-6 py-3 text-sm sm:text-base font-bold shadow-xl cursor-pointer"
                     style={{
                       background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
                       boxShadow: "0 4px 25px rgba(16, 185, 129, 0.45)",
@@ -477,8 +561,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Column: Prediction Result Panel (5 cols on desktop) */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Right Column: Prediction Result Panel (Sticky on desktop, stacked on mobile) */}
+        <div className="w-full lg:w-[420px] xl:w-[450px] lg:shrink-0 space-y-6">
           <PredictionCard
             data={formData}
             result={predictionResult}

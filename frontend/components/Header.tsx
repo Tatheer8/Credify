@@ -40,6 +40,18 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
     router.push("/dashboard");
   }
 
+  function handleSaveAssessmentClick() {
+    if (typeof window !== "undefined") {
+      const current = sessionStorage.getItem("crediwise_current_assessment");
+      if (current) {
+        localStorage.setItem("crediwise_saved_assessment", current);
+        sessionStorage.setItem("crediwise_saved_assessment", current);
+      }
+    }
+    setMenuOpen(false);
+    router.push("/signup?saved=true");
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -103,35 +115,35 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
         borderColor: "var(--border-subtle)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Left: CrediWise AI Logo & Brand */}
-        <Link href="/dashboard" className="flex items-center gap-3 group">
+        <Link href="/dashboard" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shadow-emerald-900/40 transition-transform duration-200 group-hover:scale-105"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shadow-md shadow-emerald-900/40 transition-transform duration-200 group-hover:scale-105 shrink-0"
             style={{ background: "linear-gradient(135deg, #059669, #0d9488)" }}
           >
-            <TrendingUp className="w-5 h-5 text-white stroke-[2.2]" />
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white stroke-[2.2]" />
           </div>
           <div className="flex flex-col">
             <span
-              className="text-lg sm:text-xl font-bold tracking-tight gradient-text"
+              className="text-base sm:text-xl font-bold tracking-tight gradient-text leading-tight"
               style={{ fontFamily: "var(--font-space), sans-serif" }}
             >
               CrediWise AI
             </span>
-            <span className="text-[10px] tracking-wider uppercase hidden sm:block -mt-1 font-medium" style={{ color: "var(--text-muted)" }}>
+            <span className="text-[9px] sm:text-[10px] tracking-wider uppercase hidden sm:block -mt-0.5 font-medium" style={{ color: "var(--text-muted)" }}>
               Intelligent Underwriting
             </span>
           </div>
         </Link>
 
         {/* Right: Guest Chip / Conversion, Theme toggle, User Avatar, Logout */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Guest Mode Status Chip & Conversion CTA */}
           {user?.isGuest && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold shrink-0"
                 style={{
                   background: "rgba(245, 158, 11, 0.12)",
                   color: "#fbbf24",
@@ -139,15 +151,16 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                 }}
                 title="You are browsing in temporary Guest Mode."
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <span className="hidden sm:inline">Guest Mode</span>
-                <span className="sm:hidden">Guest</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <span className="hidden min-[480px]:inline">Guest Mode</span>
+                <span className="min-[480px]:hidden">Guest</span>
               </div>
 
-              <Link
-                href="/signup"
+              <button
+                type="button"
                 id="guest-convert-btn"
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm hover:scale-105"
+                onClick={handleSaveAssessmentClick}
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm hover:scale-105"
                 style={{
                   background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(13,148,136,0.22))",
                   border: "1px solid rgba(16,185,129,0.4)",
@@ -156,8 +169,9 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                 title="Save your loan calculations and unlock cloud session persistence"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Save Assessment / Sign Up</span>
-              </Link>
+                <span className="hidden lg:inline">Save Assessment / Sign Up</span>
+                <span className="lg:hidden">Save &amp; Sign Up</span>
+              </button>
             </div>
           )}
 
@@ -166,7 +180,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
             id="theme-toggle-btn"
             type="button"
             onClick={onToggleTheme}
-            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer hover:border-emerald-500/40 hover:scale-105"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer hover:border-emerald-500/40 hover:scale-105 shrink-0"
             style={{
               background: "var(--bg-elevated)",
               color: "var(--text-secondary)",
@@ -188,7 +202,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
               id="user-profile-btn"
               type="button"
               onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer hover:border-emerald-500/40"
+              className="flex items-center gap-1.5 sm:gap-2.5 pl-1.5 pr-2 sm:pl-2 sm:pr-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer hover:border-emerald-500/40 shrink-0"
               style={{
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--border-default)",
@@ -196,7 +210,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
               aria-label="User profile menu"
             >
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm shadow-emerald-900/40"
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm shadow-emerald-900/40 shrink-0"
                 style={{
                   background: user?.isGuest
                     ? "linear-gradient(135deg, #d97706, #b45309)"
@@ -205,7 +219,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
               >
                 {user?.avatar || (user?.isGuest ? "G" : "F")}
               </div>
-              <div className="flex flex-col text-left">
+              <div className="hidden sm:flex flex-col text-left">
                 <span className="text-xs sm:text-sm font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
                   {user?.name || (user?.isGuest ? "Guest User" : "Fatima")}
                 </span>
@@ -213,7 +227,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                   {user?.role || (user?.isGuest ? "Guest Mode" : "Senior Underwriter")}
                 </span>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-60" />
+              <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-60 shrink-0" />
             </button>
 
             <AnimatePresence>
@@ -257,14 +271,14 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                     {/* Conversion CTA inside dropdown for Guest */}
                     {user?.isGuest && (
                       <div className="mt-2.5 pt-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-                        <Link
-                          href="/signup"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                        <button
+                          type="button"
+                          onClick={handleSaveAssessmentClick}
+                          className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors cursor-pointer"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
                           <span>Save Assessment / Sign Up</span>
-                        </Link>
+                        </button>
                       </div>
                     )}
                   </div>
