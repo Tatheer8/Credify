@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Mail, Lock, Eye, EyeOff, User, ArrowRight, AlertCircle, CheckCircle } from "lucide-react";
-import { signUp, isAuthenticated } from "@/lib/auth";
+import { TrendingUp, Mail, Lock, Eye, EyeOff, User, UserCheck, ArrowRight, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import { signUp, continueAsGuest, isAuthenticated, isGuestUser } from "@/lib/auth";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -17,7 +17,9 @@ export default function SignUpPage() {
   const [loading, setLoading]   = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) router.replace("/dashboard");
+    if (isAuthenticated() && !isGuestUser()) {
+      router.replace("/dashboard");
+    }
   }, [router]);
 
   const strength = (() => {
@@ -33,9 +35,15 @@ export default function SignUpPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (password !== confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
     setError("");
-    if (password !== confirm) { setError("Passwords do not match."); return; }
-    if (password.length < 6)  { setError("Password must be at least 6 characters."); return; }
     setLoading(true);
     await new Promise(r => setTimeout(r, 700));
     const res = signUp(name, email, password);
@@ -44,6 +52,14 @@ export default function SignUpPage() {
       router.replace("/dashboard");
     } else {
       setError(res.error ?? "Signup failed");
+    }
+  }
+
+  function handleGuestMode() {
+    continueAsGuest();
+    router.push("/dashboard");
+    if (typeof window !== "undefined") {
+      window.location.href = "/dashboard";
     }
   }
 
@@ -76,6 +92,13 @@ export default function SignUpPage() {
 
         <div className="glass p-8 space-y-6">
           <div>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-emerald-400 transition-colors group mb-3"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+              <span>Back to Home</span>
+            </Link>
             <h2 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
               Create your account
             </h2>
@@ -89,9 +112,9 @@ export default function SignUpPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Full Name</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--text-muted)" }} />
                 <input id="signup-name" type="text" required value={name} onChange={e => setName(e.target.value)}
-                  placeholder="John Doe" className="input-base pl-10" />
+                  placeholder="John Doe" className="input-base !pl-11" style={{ paddingLeft: "2.75rem" }} />
               </div>
             </div>
 
@@ -99,9 +122,9 @@ export default function SignUpPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--text-muted)" }} />
                 <input id="signup-email" type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com" className="input-base pl-10" />
+                  placeholder="you@example.com" className="input-base !pl-11" style={{ paddingLeft: "2.75rem" }} />
               </div>
             </div>
 
@@ -109,11 +132,11 @@ export default function SignUpPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--text-muted)" }} />
                 <input id="signup-password" type={showPw ? "text" : "password"} required value={password}
-                  onChange={e => setPassword(e.target.value)} placeholder="Min 6 characters" className="input-base pl-10 pr-10" />
+                  onChange={e => setPassword(e.target.value)} placeholder="Min 6 characters" className="input-base !pl-11 pr-10" style={{ paddingLeft: "2.75rem" }} />
                 <button type="button" onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded cursor-pointer"
                   style={{ color: "var(--text-muted)" }}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -136,9 +159,9 @@ export default function SignUpPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Confirm Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--text-muted)" }} />
                 <input id="signup-confirm" type={showPw ? "text" : "password"} required value={confirm}
-                  onChange={e => setConfirm(e.target.value)} placeholder="Re-enter password" className="input-base pl-10 pr-10" />
+                  onChange={e => setConfirm(e.target.value)} placeholder="Re-enter password" className="input-base !pl-11 pr-10" style={{ paddingLeft: "2.75rem" }} />
                 {confirm.length > 0 && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {confirm === password
@@ -161,7 +184,7 @@ export default function SignUpPage() {
               )}
             </AnimatePresence>
 
-            <button id="signup-submit" type="submit" disabled={loading} className="btn-primary w-full mt-2">
+            <button id="signup-submit" type="submit" disabled={loading} className="btn-primary w-full mt-2 cursor-pointer shadow-lg">
               {loading ? (
                 <span className="flex items-center gap-2">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -171,14 +194,43 @@ export default function SignUpPage() {
                   Creating account…
                 </span>
               ) : (
-                <span className="flex items-center gap-2">Create Account <ArrowRight className="w-4 h-4" /></span>
+                <span className="flex items-center gap-2 font-semibold">
+                  Create Account <ArrowRight className="w-4 h-4" />
+                </span>
               )}
             </button>
+
+            {/* Subtle horizontal divider with "or" */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: "var(--border-subtle)" }} />
+              </div>
+              <div className="relative flex justify-center text-xs" style={{ color: "var(--text-muted)" }}>
+                <span className="px-2 font-medium" style={{ background: "var(--bg-card)" }}>
+                  or
+                </span>
+              </div>
+            </div>
+
+            {/* Continue as Guest Button */}
+            <button
+              id="continue-guest-btn"
+              type="button"
+              onClick={handleGuestMode}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.03] text-slate-300 hover:text-white"
+              style={{ background: "var(--bg-elevated)" }}
+            >
+              <UserCheck className="w-4 h-4 text-teal-400" />
+              <span>Continue as Guest</span>
+            </button>
+            <p className="text-center text-[11px] -mt-1" style={{ color: "var(--text-muted)" }}>
+              Explore the loan assessment dashboard instantly without creating an account
+            </p>
           </form>
 
-          <div className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          <div className="text-center text-sm pt-1" style={{ color: "var(--text-muted)" }}>
             Already have an account?{" "}
-            <Link href="/login" id="goto-login" className="font-medium" style={{ color: "var(--brand-400)" }}>
+            <Link href="/login" id="goto-login" className="font-medium hover:underline" style={{ color: "var(--brand-400)" }}>
               Sign in
             </Link>
           </div>

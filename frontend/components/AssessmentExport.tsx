@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Download, FileText, Loader2, Check } from "lucide-react";
 import type { LoanFormData, PredictionResult } from "@/lib/types";
+import { getSession } from "@/lib/auth";
 
 interface AssessmentExportProps {
   data: LoanFormData;
@@ -20,6 +21,13 @@ export default function AssessmentExport({ data, result, onExportSuccess }: Asse
         import("jspdf"),
         import("html2canvas"),
       ]);
+
+      const session = getSession();
+      const underwriterStr = session?.user?.isGuest
+        ? "Guest User (Guest Underwriter — Sandbox Mode)"
+        : session?.user
+        ? `${session.user.name} (${session.user.role})`
+        : "Fatima (Senior Risk Underwriter)";
 
       const isApproved = result.prediction === "Approved";
       const totalIncome = (Number(data.income) || 0) + (Number(data.coApplicantIncome) || 0);
@@ -51,7 +59,7 @@ export default function AssessmentExport({ data, result, onExportSuccess }: Asse
           <div style="text-align: right; font-size: 11px; color: #94a3b8;">
             <p style="margin: 0; font-weight: 600; color: #f1f7f5;">Report ID: CW-${Date.now().toString().slice(-6)}</p>
             <p style="margin: 3px 0 0 0;">Date: ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })}</p>
-            <p style="margin: 3px 0 0 0;">Underwriter: Fatima (Senior Risk Underwriter)</p>
+            <p style="margin: 3px 0 0 0;">Underwriter: ${underwriterStr}</p>
           </div>
         </div>
 

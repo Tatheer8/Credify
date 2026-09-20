@@ -6,6 +6,7 @@ export interface User {
   email: string;
   avatar: string;
   role: string;
+  isGuest?: boolean;
 }
 
 const USERS_KEY = "crediwise_users";
@@ -63,27 +64,50 @@ export function signUp(name: string, email: string, password: string): { ok: boo
   users.push(user);
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-  // Reset logged out flag
+  // Reset logged out flag and clean guest artifacts
   localStorage.removeItem(LOGGED_OUT_KEY);
+  localStorage.removeItem("crediwise_guest_session");
+  sessionStorage.removeItem("crediwise_guest_session");
+  document.cookie = "is_guest=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
   const { passwordHash: _ph, ...publicUser } = user;
   const token = makeMockJWT(publicUser);
   localStorage.setItem(SESSION_KEY, JSON.stringify({ token, user: publicUser }));
+
+  // Notify components of auth change
+  window.dispatchEvent(new Event("auth-change"));
   return { ok: true };
 }
 
 export function signIn(email: string, password: string): { ok: boolean; error?: string } {
   if (typeof window === "undefined") return { ok: false, error: "SSR" };
 
-  // Reset logged out flag
+  // Reset logged out flag and clean guest artifacts
   localStorage.removeItem(LOGGED_OUT_KEY);
+  localStorage.removeItem("crediwise_guest_session");
+  sessionStorage.removeItem("crediwise_guest_session");
+  document.cookie = "is_guest=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // Demo Fatima account support
+  // Demo Fatima and sandbox account support
   if (cleanEmail === "fatima@crediwise.ai" || cleanEmail === "fatima.zahra@crediwise.ai") {
     const token = makeMockJWT(DEFAULT_USER);
     localStorage.setItem(SESSION_KEY, JSON.stringify({ token, user: DEFAULT_USER }));
+    window.dispatchEvent(new Event("auth-change"));
+    return { ok: true };
+  }
+  if (cleanEmail === "demo@crediwise.ai") {
+    const demoUser: User = {
+      id: "usr_demo_001",
+      name: "Demo Underwriter",
+      email: "demo@crediwise.ai",
+      avatar: "D",
+      role: "Credit Analyst",
+    };
+    const token = makeMockJWT(demoUser);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token, user: demoUser }));
+    window.dispatchEvent(new Event("auth-change"));
     return { ok: true };
   }
 
@@ -112,22 +136,69 @@ export function signIn(email: string, password: string): { ok: boolean; error?: 
   const { passwordHash: _ph, ...publicUser } = user;
   const token = makeMockJWT(publicUser);
   localStorage.setItem(SESSION_KEY, JSON.stringify({ token, user: publicUser }));
+  window.dispatchEvent(new Event("auth-change"));
   return { ok: true };
+}
+
+/**
+ * Initialize a temporary guest session:
+ * 1. Clears any logout flag
+ * 2. Generates a guest User and JWT session object
+ * 3. Saves guest session in localStorage & sessionStorage
+ * 4. Sets a client-side is_guest=true cookie for route guards & middleware
+ * 5. Dispatches an auth-change event so UI updates immediately
+ */
+export function continueAsGuest(): { ok: boolean; user: User } {
+  if (typeof window === "undefined") return { ok: false, user: DEFAULT_USER };
+
+  localStorage.removeItem(LOGGED_OUT_KEY);
+
+  const guestId = "guest_" + Date.now();
+  const guestUser: User = {
+    id: guestId,
+    name: "Guest User",
+    email: "guest@crediwise.ai",
+    avatar: "G",
+    role: "Guest Underwriter",
+    isGuest: true,
+  };
+
+  const token = makeMockJWT(guestUser);
+  const session = { token, user: guestUser };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+  // Store guest state object in localStorage & sessionStorage matching specifications
+  const guestState = { isGuest: true, role: "guest", name: "Guest User", id: guestId };
+  localStorage.setItem("crediwise_guest_session", JSON.stringify(guestState));
+  sessionStorage.setItem("crediwise_guest_session", JSON.stringify(guestState));
+
+  // Set is_guest cookie for middleware / server route checks
+  document.cookie = "is_guest=true; path=/; max-age=86400; SameSite=Lax";
+
+  // Notify components of auth change
+  window.dispatchEvent(new Event("auth-change"));
+
+  return { ok: true, user: guestUser };
 }
 
 /**
  * Perform complete sign out:
  * 1. Clears localStorage session keys
- * 2. Clears sessionStorage
- * 3. Sets an explicit logged out flag so getSession() does not recreate a default session
+ * 2. Clears sessionStorage and guest state
+ * 3. Clears is_guest cookie
+ * 4. Sets an explicit logged out flag so getSession() does not recreate a default session
+ * 5. Emits auth-change event
  */
 export function signOut(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem("crediwise_guest_session");
   localStorage.removeItem("loanlogic_session");
   localStorage.removeItem("loaniq_session");
   sessionStorage.clear();
+  document.cookie = "is_guest=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   localStorage.setItem(LOGGED_OUT_KEY, "true");
+  window.dispatchEvent(new Event("auth-change"));
 }
 
 export function getSession(): { token: string; user: User } | null {
@@ -143,11 +214,17 @@ export function getSession(): { token: string; user: User } | null {
 
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) {
-    // Initial visit: seed default Fatima session for recruiter convenience
-    const token = makeMockJWT(DEFAULT_USER);
-    const session = { token, user: DEFAULT_USER };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return session;
+    // Initial visit: initialize seamless Guest Mode so visitors can explore immediately without friction
+    continueAsGuest();
+    const guestRaw = localStorage.getItem(SESSION_KEY);
+    if (guestRaw) {
+      try {
+        return JSON.parse(guestRaw);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   try {
@@ -155,7 +232,9 @@ export function getSession(): { token: string; user: User } | null {
     const payload = JSON.parse(atob(s.token.split(".")[1]));
     if (Date.now() > payload.exp) {
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem("crediwise_guest_session");
       localStorage.setItem(LOGGED_OUT_KEY, "true");
+      document.cookie = "is_guest=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       return null;
     }
     return s;
@@ -167,4 +246,24 @@ export function getSession(): { token: string; user: User } | null {
 
 export function isAuthenticated(): boolean {
   return getSession() !== null;
+}
+
+export function isGuestUser(): boolean {
+  if (typeof window === "undefined") return false;
+  const session = getSession();
+  if (session?.user?.isGuest) return true;
+
+  const guestRaw =
+    localStorage.getItem("crediwise_guest_session") ||
+    sessionStorage.getItem("crediwise_guest_session");
+  if (guestRaw) {
+    try {
+      const parsed = JSON.parse(guestRaw);
+      if (parsed?.isGuest) return true;
+    } catch {
+      // ignore json parse error
+    }
+  }
+
+  return document.cookie.includes("is_guest=true");
 }

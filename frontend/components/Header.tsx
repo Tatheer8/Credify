@@ -3,8 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Sun, Moon, LogOut, ChevronDown, ShieldCheck, Loader2 } from "lucide-react";
-import { getSession, signOut, type User } from "@/lib/auth";
+import { TrendingUp, Sun, Moon, LogOut, ChevronDown, ShieldCheck, Loader2, Sparkles, UserCheck } from "lucide-react";
+import { getSession, signOut, continueAsGuest, type User } from "@/lib/auth";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -20,13 +20,25 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const s = getSession();
-    if (s) {
-      setUser(s.user);
-    } else {
-      setUser(null);
+    function syncUser() {
+      const s = getSession();
+      setUser(s ? s.user : null);
     }
+    syncUser();
+    window.addEventListener("auth-change", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("auth-change", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
   }, []);
+
+  function handleSwitchToGuest() {
+    const res = continueAsGuest();
+    setUser(res.user);
+    setMenuOpen(false);
+    router.push("/dashboard");
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -113,8 +125,42 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
           </div>
         </Link>
 
-        {/* Right: Theme toggle, Fatima Avatar "F", User name "Fatima", Logout */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Right: Guest Chip / Conversion, Theme toggle, User Avatar, Logout */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Guest Mode Status Chip & Conversion CTA */}
+          {user?.isGuest && (
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  background: "rgba(245, 158, 11, 0.12)",
+                  color: "#fbbf24",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                }}
+                title="You are browsing in temporary Guest Mode."
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="hidden sm:inline">Guest Mode</span>
+                <span className="sm:hidden">Guest</span>
+              </div>
+
+              <Link
+                href="/signup"
+                id="guest-convert-btn"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm hover:scale-105"
+                style={{
+                  background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(13,148,136,0.22))",
+                  border: "1px solid rgba(16,185,129,0.4)",
+                  color: "var(--brand-400)",
+                }}
+                title="Save your loan calculations and unlock cloud session persistence"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Save Assessment / Sign Up</span>
+              </Link>
+            </div>
+          )}
+
           {/* Theme toggle */}
           <button
             id="theme-toggle-btn"
@@ -151,16 +197,20 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
             >
               <div
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm shadow-emerald-900/40"
-                style={{ background: "linear-gradient(135deg, #059669, #0d9488)" }}
+                style={{
+                  background: user?.isGuest
+                    ? "linear-gradient(135deg, #d97706, #b45309)"
+                    : "linear-gradient(135deg, #059669, #0d9488)",
+                }}
               >
-                {user?.avatar || "F"}
+                {user?.avatar || (user?.isGuest ? "G" : "F")}
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-xs sm:text-sm font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
-                  {user?.name || "Fatima"}
+                  {user?.name || (user?.isGuest ? "Guest User" : "Fatima")}
                 </span>
                 <span className="text-[10px] hidden md:block leading-none" style={{ color: "var(--text-muted)" }}>
-                  Senior Underwriter
+                  {user?.role || (user?.isGuest ? "Guest Mode" : "Senior Underwriter")}
                 </span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-60" />
@@ -173,7 +223,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-60 p-2 rounded-2xl shadow-2xl z-50 glass"
+                  className="absolute right-0 mt-2 w-64 p-2 rounded-2xl shadow-2xl z-50 glass"
                   style={{
                     background: "var(--bg-surface)",
                     border: "1px solid var(--border-strong)",
@@ -181,19 +231,57 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                 >
                   <div className="px-3 py-2.5 border-b" style={{ borderColor: "var(--border-subtle)" }}>
                     <div className="flex items-center gap-2 mb-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-emerald-400">
-                        Authenticated
-                      </span>
+                      {user?.isGuest ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-amber-400" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                            Guest Session
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-[11px] font-medium uppercase tracking-wider text-emerald-400">
+                            Authenticated
+                          </span>
+                        </>
+                      )}
                     </div>
                     <p className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
-                      {user?.name || "Fatima"}
+                      {user?.name || "Guest User"}
                     </p>
                     <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                      {user?.email || "fatima.zahra@crediwise.ai"}
+                      {user?.email || "guest@crediwise.ai"}
                     </p>
+
+                    {/* Conversion CTA inside dropdown for Guest */}
+                    {user?.isGuest && (
+                      <div className="mt-2.5 pt-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                        <Link
+                          href="/signup"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Save Assessment / Sign Up</span>
+                        </Link>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-1.5">
+                  <div className="p-1.5 space-y-1">
+                    {/* Switch to Guest Mode option when signed in as registered/demo user */}
+                    {!user?.isGuest && (
+                      <button
+                        id="dropdown-switch-guest-btn"
+                        type="button"
+                        onClick={handleSwitchToGuest}
+                        className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Switch to Guest Mode</span>
+                      </button>
+                    )}
+
                     {/* Active Sign Out Button in Dropdown */}
                     <button
                       id="dropdown-signout-btn"
@@ -207,7 +295,7 @@ export default function Header({ darkMode, onToggleTheme, onLogout }: HeaderProp
                       ) : (
                         <LogOut className="w-3.5 h-3.5" />
                       )}
-                      <span>{loggingOut ? "Signing Out…" : "Sign Out"}</span>
+                      <span>{loggingOut ? "Signing Out…" : user?.isGuest ? "Exit Guest Mode" : "Sign Out"}</span>
                     </button>
                   </div>
                 </motion.div>

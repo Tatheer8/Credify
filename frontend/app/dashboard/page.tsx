@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Brain,
@@ -10,6 +11,7 @@ import {
   Sparkles,
   ChevronRight,
   RefreshCw,
+  UserCheck,
 } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import StepIndicator from "@/components/StepIndicator";
@@ -23,6 +25,7 @@ import {
   predictLoan,
   getSessionCount,
 } from "@/lib/predictionService";
+import { isGuestUser } from "@/lib/auth";
 import type { LoanFormData, PredictionResult, ToastMessage } from "@/lib/types";
 
 const INITIAL_FORM_DATA: LoanFormData = {
@@ -48,10 +51,63 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [sessionCount, setSessionCount] = useState(14);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    setSessionCount(getSessionCount());
+    function syncAuth() {
+      setSessionCount(getSessionCount());
+      setIsGuest(isGuestUser());
+    }
+    syncAuth();
+    window.addEventListener("auth-change", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("auth-change", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
   }, []);
+
+  function handleLoadPrimeApplicant() {
+    setFormData({
+      applicantName: "Jordan Vance",
+      age: "35",
+      education: "Graduate",
+      employment: "Employed",
+      dependents: "1",
+      maritalStatus: "Married",
+      income: "8500",
+      coApplicantIncome: "3200",
+      loanAmount: "140",
+      loanTerm: "360",
+      creditHistory: "Good",
+      propertyArea: "Semiurban",
+    });
+    setFormErrors({});
+    setPredictionResult(null);
+    setCurrentStep(1);
+    addToast("info", "Loaded Prime Applicant profile (Good credit, strong income).");
+  }
+
+  function handleLoadHighRiskApplicant() {
+    setFormData({
+      applicantName: "Alex Mercer",
+      age: "24",
+      education: "Not Graduate",
+      employment: "Self-employed",
+      dependents: "3+",
+      maritalStatus: "Single",
+      income: "2100",
+      coApplicantIncome: "0",
+      loanAmount: "380",
+      loanTerm: "180",
+      creditHistory: "Poor",
+      propertyArea: "Rural",
+    });
+    setFormErrors({});
+    setPredictionResult(null);
+    setCurrentStep(1);
+    addToast("warning", "Loaded High-Risk Applicant profile (Poor credit, high DTI).");
+  }
 
   function addToast(type: ToastMessage["type"], message: string) {
     const id = crypto.randomUUID();
@@ -212,6 +268,66 @@ export default function DashboardPage() {
           </motion.button>
         )}
       </motion.div>
+
+      {/* Guest Mode Advisory Banner */}
+      {isGuest && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 rounded-2xl glass"
+          style={{
+            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.09) 0%, rgba(16, 185, 129, 0.06) 100%)",
+            border: "1px solid rgba(245, 158, 11, 0.28)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <UserCheck className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-amber-300">Guest Sandbox Mode Active</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  Guest Session
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                You are testing the AI underwriting model with a temporary guest profile. Assessments, confidence gauges, and EMI calculations are live.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
+            {/* 1-Click Sandbox Test Scenarios */}
+            <button
+              id="guest-preset-prime-btn"
+              type="button"
+              onClick={handleLoadPrimeApplicant}
+              className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:scale-105"
+              title="Auto-fill with high approval odds (Good credit, strong income)"
+            >
+              🌟 Prime Applicant
+            </button>
+            <button
+              id="guest-preset-risk-btn"
+              type="button"
+              onClick={handleLoadHighRiskApplicant}
+              className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:scale-105"
+              title="Auto-fill with high risk odds (Poor credit, high debt-to-income)"
+            >
+              ⚠️ High-Risk Applicant
+            </button>
+            <Link
+              href="/signup"
+              id="guest-banner-signup-btn"
+              className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 shadow-md hover:scale-105 transition-transform"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Save Assessment / Sign Up</span>
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* Three Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">

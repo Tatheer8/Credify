@@ -15,6 +15,7 @@ export default function Toast({ toasts, onDismiss }: ToastProps) {
         {toasts.map((t) => {
           const isSuccess = t.type === "success";
           const isError = t.type === "error";
+          const isWarning = t.type === "warning";
 
           return (
             <motion.div
@@ -28,17 +29,23 @@ export default function Toast({ toasts, onDismiss }: ToastProps) {
                   ? "rgba(10, 24, 18, 0.95)"
                   : isError
                   ? "rgba(28, 12, 12, 0.95)"
+                  : isWarning
+                  ? "rgba(28, 20, 8, 0.95)"
                   : "rgba(14, 23, 34, 0.95)",
                 borderColor: isSuccess
                   ? "rgba(16, 185, 129, 0.4)"
                   : isError
                   ? "rgba(239, 68, 68, 0.4)"
+                  : isWarning
+                  ? "rgba(245, 158, 11, 0.4)"
                   : "rgba(14, 165, 233, 0.4)",
-                color: isSuccess ? "#6ee7b7" : isError ? "#fca5a5" : "#7dd3fc",
+                color: isSuccess ? "#6ee7b7" : isError ? "#fca5a5" : isWarning ? "#fde68a" : "#7dd3fc",
                 boxShadow: isSuccess
                   ? "0 8px 30px rgba(16, 185, 129, 0.2)"
                   : isError
                   ? "0 8px 30px rgba(239, 68, 68, 0.2)"
+                  : isWarning
+                  ? "0 8px 30px rgba(245, 158, 11, 0.2)"
                   : "0 8px 30px rgba(14, 165, 233, 0.2)",
               }}
             >
@@ -46,6 +53,8 @@ export default function Toast({ toasts, onDismiss }: ToastProps) {
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               ) : isError ? (
                 <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              ) : isWarning ? (
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               ) : (
                 <Info className="w-4 h-4 text-cyan-400 shrink-0" />
               )}
